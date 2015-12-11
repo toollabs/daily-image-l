@@ -4,24 +4,26 @@
 # Initally written by https://commons.wikimedia.org/wiki/User:Pfctdayelise under Creative Commons Attribution-ShareAlike 3.0 license
 # <https://creativecommons.org/licenses/by-sa/3.0/legalcode>
 
+wget = '''/usr/bin/wget -S -erobots=off -q -O - '''
 
-wget = '''wget -S -erobots=off -q -O - '''
+todaypotd = r'https://commons.wikimedia.org/w/index.php?title=Commons:Picture_of_the_day/Today_in_all_languages&action=purge&useskin=monobook'
+urlbase = r'https://commons.wikimedia.org/wiki/'
+#querycat = 'http://commons.wikimedia.org/w/query.php?what=categories&format=txt&titles='
+querycat = 'https://commons.wikimedia.org/w/api.php?action=query&rawcontinue=1&format=txt&prop=categories&titles='
+#querylinks = r'http://commons.wikimedia.org/w/query.php?what=imagelinks&ilnamespace=4&format=txt&illimit=300&titles='
+querylinks = r'https://commons.wikimedia.org/w/api.php?action=query&rawcontinue=1&format=txt&iunamespace=4&iulimit=500&list=imageusage&iutitle='
 
-todaypotd = r'http://commons.wikimedia.org/w/index.php?title=Commons:Picture_of_the_day/Today&action=purge'
-urlbase = r'http://commons.wikimedia.org/wiki/'
-querycat = 'http://commons.wikimedia.org/w/query.php?what=categories&format=txt&titles='
-querylinks = r'http://commons.wikimedia.org/w/query.php?what=imagelinks&ilnamespace=4&format=txt&illimit=300&titles='
 
 import os,sys,re
 from commands import getoutput
 from datetime import date
 
-repotdcontent = re.compile('<!-- start content -->(.*?)<!-- end content -->', re.DOTALL)
+repotdcontent = re.compile('"mw-content-text"(.*?)NewPP limit report', re.DOTALL)
 reimagename = re.compile('<div class="magnify"><a href="/wiki/([^"]*)" class="internal"')
 recats =  re.compile('Category:(.*)')
 refplinks = re.compile('Commons:Featured pictures/([^c].*)')
 reqilinks = re.compile('Commons:Quality [Ii]mages/([^c].*)')
-recaptions = re.compile('<ul>(.*?)</ul>', re.DOTALL)
+recaptions = re.compile('<ul.*?>(.*?)</ul>', re.DOTALL)
 reli = re.compile('</?li[^>]*>')
 rea = re.compile('</?a[^>]*>')
 rei = re.compile('</?i>')
@@ -29,40 +31,61 @@ renocaption = re.compile('\n[^:]*: Template:Potd[^)]*\)')
 
 SENDMAIL = "/usr/sbin/sendmail"
 
-mailfilename = "/users/blaugher/dailyimagel/dailyimagel.txt"
-mailerror = "/users/blaugher/dailyimagel/mailerror.txt"
+mailfilename = "/data/project/potd/dailyimagel.txt"
+mailerror = "/data/project/potd/mailerror.txt"
 
-mailto = "brianna.laugher@gmail.com"
-#mailto = "daily-image-l@lists.wikimedia.org"
+mailfrom = 'Wikimedia Commons Picture of the Day <local-potd@tools.wmflabs.org>'
+#mailto = "brianna.laugher@gmail.com"
+mailto = "daily-image-l@lists.wikimedia.org"
+#mailto = "steinsplitter-wiki@live.com"
+#mailto = 'bryan.tongminh@gmail.com'
+if len(sys.argv) > 1:
+        mailto = sys.argv[1]
 
 def createmail():
     '''
     Attempts to create an email at mailfilename.
     '''
-    f = getoutput(wget + '--post-data submit "' + todaypotd + '"')
+    #print "starting"
+    f = getoutput(wget + '--post-data "submit=OK&wpEditToken=%2B%5C&redirectparams=useskin%3Dvector" "' + todaypotd + '"')
+    #print "got wget output ok"
 
-    wgetfile = open('wget.txt','w')
+    wgetfile = open('/data/project/potd/wgetoutput.txt','w')
     wgetfile.write(f)
     wgetfile.close()
 
+    #print "f:",f
+
     content = repotdcontent.findall(f)
 
+    #print "got content ok"
+
     # extract image name/url
+    #print len(content)
+    #print "content[0]:",content[0]
+
     imagename = reimagename.findall(content[0])[0]
     imageurl = urlbase + imagename
+
+    #print "got image name ok"
 
     # attempt to determine license status from categories
     catstext = getoutput(wget + '"' + querycat + imagename + '"')
     categories = recats.findall(catstext)
 
+    #print "categories:", categories
+
     licenses = {"GFDL":"GNU Free Documentation License",
-                "CC-BY-SA-2.5,2.0,1.0":"Creative Commons Attribution ShareAlike license, all versions",
                 "CC-BY-SA-1.0":"Creative Commons Attribution ShareAlike license, version 1.0",
                 "CC-BY-SA-2.0":"Creative Commons Attribution ShareAlike license, version 2.0",
                 "CC-BY-SA-2.5":"Creative Commons Attribution ShareAlike license, version 2.5",
+                "CC-BY-SA-3.0":"Creative Commons Attribution ShareAlike license, version 3.0",
+                "CC-BY-SA-4.0":"Creative Commons Attribution ShareAlike license, version 4.0",
                 "CC-BY-1.0":"Creative Commons Attribution license, version 1.0",
                 "CC-BY-2.0":"Creative Commons Attribution license, version 2.0",
-                "CC-BY-2.5":"Creative Commons Attribution license, version 2.5"
+                "CC-BY-2.5":"Creative Commons Attribution license, version 2.5",
+                "CC-BY-3.0":"Creative Commons Attribution license, version 3.0",
+                "CC-BY-4.0":"Creative Commons Attribution license, version 4.0"
                 }
 
     lic = ""
@@ -119,7 +142,8 @@ def createmail():
 
     # write info to file
     g= open(mailfilename,'w')
-    g.write("To: " + mailto + '\n')
+    g.write('From: ' + mailfrom + '\r\n')
+    g.write("To: " + mailto + '\r\n')
     g.write('Content-Type: text/plain; charset=utf-8\r\n')
     #don't need this?
     #g.write("From: brianna.laugher@gmail.com\n")
@@ -148,6 +172,7 @@ except:
     # some Python error, catch its name and send error mail
     error = sys.exc_info()[0]
     mailfilename = mailerror
+    raise
 
 # get the email message from a file
 f = open(mailfilename, 'r')
