@@ -9,18 +9,19 @@ wget = '''/usr/bin/wget -S -erobots=off -q -O - '''
 todaypotd = r'https://commons.wikimedia.org/w/index.php?title=Commons:Picture_of_the_day/Today_in_all_languages&action=purge&useskin=monobook'
 urlbase = r'https://commons.wikimedia.org/wiki/'
 #querycat = 'http://commons.wikimedia.org/w/query.php?what=categories&format=txt&titles='
-querycat = 'https://commons.wikimedia.org/w/api.php?action=query&rawcontinue=1&format=txt&prop=categories&titles='
+querycat = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=categories&titles='
 #querylinks = r'http://commons.wikimedia.org/w/query.php?what=imagelinks&ilnamespace=4&format=txt&illimit=300&titles='
-querylinks = r'https://commons.wikimedia.org/w/api.php?action=query&rawcontinue=1&format=txt&iunamespace=4&iulimit=500&list=imageusage&iutitle='
+querylinks = r'https://commons.wikimedia.org/w/api.php?action=query&format=json&iunamespace=4&iulimit=500&list=imageusage&iutitle='
 
 
+import json
 import os,sys,re
+import urllib2
 from commands import getoutput
 from datetime import date
 
 repotdcontent = re.compile('"mw-content-text"(.*?)NewPP limit report', re.DOTALL)
 reimagename = re.compile('<div class="magnify"><a href="/wiki/([^"]*)" class="internal"')
-recats =  re.compile('Category:(.*)')
 refplinks = re.compile('Commons:Featured pictures/([^c].*)')
 reqilinks = re.compile('Commons:Quality [Ii]mages/([^c].*)')
 recaptions = re.compile('<ul.*?>(.*?)</ul>', re.DOTALL)
@@ -41,6 +42,15 @@ mailto = "daily-image-l@lists.wikimedia.org"
 #mailto = 'bryan.tongminh@gmail.com'
 if len(sys.argv) > 1:
         mailto = sys.argv[1]
+
+
+def find_in_list(regex, strings):
+    for string in strings:
+        m = regex.search(string)
+        if m:
+            return m.group(1)
+    raise IndexError
+
 
 def createmail():
     '''
@@ -70,8 +80,9 @@ def createmail():
     #print "got image name ok"
 
     # attempt to determine license status from categories
-    catstext = getoutput(wget + '"' + querycat + imagename + '"')
-    categories = recats.findall(catstext)
+    catstext = json.load(urllib2.urlopen(querycat + imagename))
+    categories = [cat['title'][9:]
+                  for cat in catstext['query']['pages'].values()[0].get('categories', [])]
 
     #print "categories:", categories
 
@@ -110,14 +121,15 @@ def createmail():
                 lic = "Public domain as a work of the " + cat[3:] + " organisation."
 
     # determine FP category (or 'topic')
-    linkstext = getoutput(wget + '"' + querylinks + imagename + '"')
+    linkstext = json.load(urllib2.urlopen(querylinks + imagename))
+    imageusage = [iu['title'] for iu in linkstext['query']['imageusage']]
     isFP = True
     try:
-        topics = refplinks.findall(linkstext)[0]
+        topics = find_in_list(refplinks, imageusage)
     except IndexError:
         try:
             isFP = False
-            topics = reqilinks.findall(linkstext)[0]
+            topics = find_in_list(reqilinks, imageusage)
         except IndexError:
             print "Could not find FP or QI backlink, aborting"
             raise IndexError, 'Could not find FP or QI backlink'
