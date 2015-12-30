@@ -63,13 +63,17 @@ def get_metadata(title):
     return data['query']['pages'][0]['imageinfo'][0]['extmetadata']
 
 
-def get_language_name(lang):
+def expand_templates(text):
     params = {
         'action': 'expandtemplates',
-        'text': '{{#language:%s}}' % lang
+        'text': text
     }
     data = api(**params)
     return data['expandtemplates']['wikitext']
+
+
+def get_language_name(lang):
+    return expand_templates('{{#language:%s}}' % lang)
 
 
 def get_captions(title):
@@ -100,7 +104,9 @@ def get_captions(title):
         except IndexError:
             continue
         caption_code = temp.get(1).value
-        caption = unicode(caption_code.strip_code())
+        # We want templates like {{w|FooBar}} to render, so expand them
+        expanded = expand_templates(unicode(caption_code))
+        caption = unicode(mwparserfromhell.parse(expanded).strip_code())
         text += '%s: %s\n' % (lang_name, caption)
 
     return text
