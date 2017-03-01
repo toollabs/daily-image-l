@@ -142,7 +142,7 @@ def createmail():
     text += "To: " + mailto + '\r\n'
     text += 'Content-Type: text/plain; charset=utf-8\r\n'
     text += "Subject: " + str(datetime.date.today()) + '\r\n\r\n'
-    text += "Body of email:\r\n"
+    text += "Picture of the day:\r\n"
 
     text += imageurl + '\n'
     if lic:
