@@ -6,12 +6,13 @@
 # Mostly re-written by https://www.mediawiki.org/wiki/User:Legoktm to
 # use modern APIs and not wget.
 
-import datetime
-import mwparserfromhell
 import os
+import re
 import sys
+import datetime
 import requests
 import traceback
+import mwparserfromhell
 
 
 def api(**kwargs):
@@ -44,6 +45,9 @@ def get_today_potd():
     content = page_content(title)
     code = mwparserfromhell.parse(content)
     name = unicode(code.filter_templates()[0].get(1).value)
+    # Avoid bug when the comment is kept in the template
+    # https://commons.wikimedia.org/w/index.php?title=Template%3APotd%2F2022-12-06&diff=717399978&oldid=700576888
+    name = re.sub("<!--.*-->", "", name, 0, re.DOTALL).strip()
     return 'File:' + name
 
 
@@ -114,9 +118,10 @@ def get_captions(title):
 
 SENDMAIL = "/usr/sbin/sendmail"
 
-mailfrom = 'Wikimedia Commons Picture of the Day <local-potd@tools.wmflabs.org>'
+mailfrom = 'Wikimedia Commons Picture of the Day <tools.potd@tools.wmflabs.org>'
 # mailto = "brianna.laugher@gmail.com"
 mailto = "daily-image-l@lists.wikimedia.org"
+# mailto = "zhuyifei1999@gmail.com"
 # mailto = "steinsplitter-wiki@live.com"
 # mailto = 'bryan.tongminh@gmail.com'
 if len(sys.argv) > 1:
