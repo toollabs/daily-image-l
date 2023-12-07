@@ -43,7 +43,7 @@ def get_today_potd():
     title = get_today_potd_title()
     content = page_content(title)
     code = mwparserfromhell.parse(content)
-    name = str(code.filter_templates()[0].get(1).value)
+    name = unicode(code.filter_templates()[0].get(1).value)
     return 'File:' + name
 
 
@@ -105,8 +105,8 @@ def get_captions(title):
             continue
         caption_code = temp.get(1).value
         # We want templates like {{w|FooBar}} to render, so expand them
-        expanded = expand_templates(str(caption_code))
-        caption = str(mwparserfromhell.parse(expanded).strip_code())
+        expanded = expand_templates(unicode(caption_code))
+        caption = unicode(mwparserfromhell.parse(expanded).strip_code())
         text += '%s: %s\n' % (lang_name, caption)
 
     return text
@@ -171,7 +171,7 @@ def main():
     p.write(mail.encode('utf-8'))
     exitcode = p.close()
     if exitcode:
-        print("sendmail error: Exit code: %s" % exitcode)
+        print "sendmail error: Exit code: %s" % exitcode
 
 if __name__ == '__main__':
     main()
